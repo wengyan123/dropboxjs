@@ -10,6 +10,9 @@ var Schema = mongoose.Schema;
 var Grid = require('gridfs-stream');
 Grid.mongo = mongoose.mongo;
 
+var MongoClient = require('mongodb').MongoClient,
+    assert = require('assert');
+var util = require('util');
 // Use quickthumb
 //app.use(qt.static(__dirname + '/'));
 
@@ -66,6 +69,7 @@ app.post('/upload', function (req, res){
   });
 });
 
+
 // Show the upload form 
 app.get('/', function (req, res){
   res.writeHead(200, {'Content-Type': 'text/html' });
@@ -73,28 +77,37 @@ app.get('/', function (req, res){
   res.end(form); 
 });
 
+
+
+//display uoloaded file in mongodb
+var findDocuments = function(db, callback){
+  //get the documents collection
+  var collection = db.collection('fs.files');
+  //find some documents
+   collection.find({},{filename:1, _id:0}).toArray(function(err,docs){
+   assert.equal(err, null);
+   console.log("Found the following records");
+   //console.dir(docs);
+   callback(docs);
+   });
+}
+
 app.get('/uploads', function (req,res){
-        res.writeHead(200, {'Content-Type': 'text/html'});
-        mongoose.connect('mongodb://127.0.0.1/test');
-        var conn = mongoose.connection;
-
-        conn.once('open', function () {
-           console.log('open');
-           var gfs = Grid(conn.db);   
-           //write content to file system 
-           var fs_write_stream = fs.createWriteStream(__dirname +'/uploads/' + 'write_Capture1.PNG');
+  res.writeHead(200, {'Content-Type': 'text/html'});
   
-          //read from mongodb
-          var readstream = gfs.createReadStream({
-             filename: 'Capture1.PNG'
-
-          });
-          readstream.pipe(fs_write_stream);
-          fs_write_stream.on('close', function () {
-             console.log('file has been written fully!');
-             res.end('read file from db');
-          });
-       });
+  //connection URL
+  var url = 'mongodb://localhost:27017/test';
+  //use connct method to connect to the server 
+  MongoClient.connect(url, function(err, db){
+    assert.equal(null, err);
+    console.log("Connected correctly to server");
+    findDocuments(db, function(docs) {
+      db.close();
+      console.dir(docs);
+      res.end(util.inspect(docs));
+    });
+  });    
+       
 });
  
 app.listen(8080);
